@@ -1,5 +1,6 @@
 
 import { useState } from "react";
+
 import {
   Sparkles,
   ArrowUp,
@@ -10,6 +11,7 @@ import {
   LoaderCircle,
   AlertCircle,
   Monitor,
+  Download,
 } from "lucide-react";
 
 function App() {
@@ -19,8 +21,7 @@ function App() {
   const [generatedProvider, setGeneratedProvider] = useState("");
   const [error, setError] = useState("");
 
-  // Uses the deployed API URL in production.
-  // Falls back to localhost during local development.
+  // Backend API URL
   const API_URL = (
     import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"
   ).replace(/\/$/, "");
@@ -32,7 +33,7 @@ function App() {
     "Design a professional gym website",
   ];
 
-  // Generate website using FastAPI backend
+  // Generate website
   const handleGenerate = async () => {
     if (!prompt.trim() || loading) return;
 
@@ -69,6 +70,15 @@ function App() {
 
       setGeneratedHTML(data.html);
       setGeneratedProvider(data.provider || "AI");
+
+      // Scroll to generated preview
+      setTimeout(() => {
+        document.getElementById("website-preview")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }, 100);
+
     } catch (err) {
       console.error("LaunchAI error:", err);
 
@@ -79,6 +89,43 @@ function App() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Download generated website as HTML
+  const handleDownloadHTML = () => {
+    if (!generatedHTML) return;
+
+    const blob = new Blob(
+      [generatedHTML],
+      { type: "text/html;charset=utf-8" }
+    );
+
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "launchai-website.html";
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 1000);
+  };
+
+  // Create another website
+  const handleCreateAnother = () => {
+    setGeneratedHTML("");
+    setGeneratedProvider("");
+    setError("");
+    setPrompt("");
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   };
 
   return (
@@ -98,6 +145,7 @@ function App() {
         </div>
 
         <div className="flex items-center gap-5 text-sm text-gray-400">
+
           <a href="#features" className="hover:text-white">
             Features
           </a>
@@ -110,6 +158,7 @@ function App() {
             <GraduationCap size={16} />
             College Project
           </div>
+
         </div>
       </nav>
 
@@ -126,6 +175,7 @@ function App() {
           <h2 className="text-6xl md:text-8xl font-black tracking-tight leading-tight">
             AFNAN
             <br />
+
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-purple-400 to-fuchsia-400">
               BHURA
             </span>
@@ -136,6 +186,7 @@ function App() {
           </p>
 
           <div className="w-24 h-1 bg-violet-500 mx-auto mt-6 rounded-full"></div>
+
         </div>
 
         {/* Product Identity */}
@@ -147,6 +198,7 @@ function App() {
         <h3 className="text-4xl md:text-6xl font-bold tracking-tight leading-tight">
           Turn your ideas into
           <br />
+
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-fuchsia-400">
             beautiful websites.
           </span>
@@ -186,10 +238,7 @@ function App() {
             >
               {loading ? (
                 <>
-                  <LoaderCircle
-                    size={18}
-                    className="animate-spin"
-                  />
+                  <LoaderCircle size={18} className="animate-spin" />
                   Generating...
                 </>
               ) : (
@@ -199,12 +248,14 @@ function App() {
                 </>
               )}
             </button>
+
           </div>
         </div>
 
         {/* Loading State */}
         {loading && (
           <div className="mt-8 text-center">
+
             <LoaderCircle
               size={32}
               className="animate-spin text-violet-400 mx-auto mb-4"
@@ -218,12 +269,14 @@ function App() {
               AI is designing and writing your website.
               This may take a little time.
             </p>
+
           </div>
         )}
 
         {/* Error State */}
         {error && (
           <div className="mt-8 bg-red-500/10 border border-red-500/30 rounded-xl p-5 text-left">
+
             <div className="flex items-center gap-2 text-red-400 font-semibold">
               <AlertCircle size={20} />
               Generation Failed
@@ -232,6 +285,7 @@ function App() {
             <p className="text-red-300 text-sm mt-2">
               {error}
             </p>
+
           </div>
         )}
 
@@ -243,6 +297,7 @@ function App() {
           </p>
 
           <div className="flex flex-wrap justify-center gap-3">
+
             {examples.map((example, index) => (
               <button
                 key={index}
@@ -252,18 +307,24 @@ function App() {
                 {example}
               </button>
             ))}
+
           </div>
         </div>
 
         {/* Generated Website Preview */}
         {generatedHTML && (
-          <section className="mt-20 pb-16 text-left">
+          <section
+            id="website-preview"
+            className="mt-20 pb-16 text-left"
+          >
 
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
 
               <div>
+
                 <div className="flex items-center gap-2 text-violet-300 mb-2">
                   <Monitor size={20} />
+
                   <span className="text-sm font-semibold">
                     YOUR GENERATED WEBSITE
                   </span>
@@ -276,27 +337,36 @@ function App() {
                 <p className="text-gray-500 text-sm mt-2">
                   Generated by LaunchAI using {generatedProvider}.
                 </p>
+
               </div>
 
-              <button
-                onClick={() => {
-                  setGeneratedHTML("");
-                  setGeneratedProvider("");
-                  setError("");
-                  window.scrollTo({
-                    top: 0,
-                    behavior: "smooth",
-                  });
-                }}
-                className="border border-violet-400/40 text-violet-300 hover:bg-violet-500/10 px-5 py-3 rounded-xl text-sm transition"
-              >
-                Create Another Website
-              </button>
+              {/* Download and Create Another */}
+              <div className="flex flex-wrap gap-3">
+
+                <button
+                  onClick={handleDownloadHTML}
+                  className="flex items-center gap-2 bg-violet-500 hover:bg-violet-600 text-white px-5 py-3 rounded-xl text-sm font-semibold transition"
+                >
+                  <Download size={17} />
+                  Download HTML
+                </button>
+
+                <button
+                  onClick={handleCreateAnother}
+                  className="border border-violet-400/40 text-violet-300 hover:bg-violet-500/10 px-5 py-3 rounded-xl text-sm transition"
+                >
+                  Create Another Website
+                </button>
+
+              </div>
+
             </div>
 
+            {/* Preview Window */}
             <div className="border border-violet-400/30 rounded-2xl overflow-hidden bg-white shadow-2xl">
 
               <div className="bg-[#15151f] px-4 py-3 flex items-center gap-2 border-b border-white/10">
+
                 <div className="w-3 h-3 rounded-full bg-red-400"></div>
                 <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
                 <div className="w-3 h-3 rounded-full bg-green-400"></div>
@@ -304,6 +374,7 @@ function App() {
                 <span className="text-xs text-gray-400 ml-3">
                   LaunchAI Website Preview
                 </span>
+
               </div>
 
               <iframe
@@ -312,6 +383,7 @@ function App() {
                 sandbox="allow-scripts"
                 className="w-full h-[750px] bg-white"
               />
+
             </div>
           </section>
         )}
@@ -323,6 +395,7 @@ function App() {
         >
 
           <div className="bg-[#12121b] border border-white/10 rounded-2xl p-7">
+
             <WandSparkles
               className="mx-auto mb-4 text-violet-400"
               size={28}
@@ -336,9 +409,11 @@ function App() {
               Transform simple text prompts into professionally
               designed landing pages.
             </p>
+
           </div>
 
           <div className="bg-[#12121b] border border-white/10 rounded-2xl p-7">
+
             <Globe
               className="mx-auto mb-4 text-violet-400"
               size={28}
@@ -352,9 +427,11 @@ function App() {
               Generate modern layouts for desktop,
               tablets and mobile devices.
             </p>
+
           </div>
 
           <div className="bg-[#12121b] border border-white/10 rounded-2xl p-7">
+
             <Zap
               className="mx-auto mb-4 text-violet-400"
               size={28}
@@ -368,7 +445,9 @@ function App() {
               Reduce the time and effort needed to create
               attractive landing pages.
             </p>
+
           </div>
+
         </section>
 
       </main>
@@ -379,6 +458,7 @@ function App() {
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
 
           <div>
+
             <p className="font-bold text-xl">
               Launch<span className="text-violet-400">AI</span>
             </p>
@@ -386,9 +466,11 @@ function App() {
             <p className="text-xs text-gray-500 mt-1">
               AI-Powered Landing Page Generator
             </p>
+
           </div>
 
           <div className="text-center sm:text-right">
+
             <p className="text-sm text-gray-400">
               Designed & Developed by
             </p>
@@ -400,7 +482,9 @@ function App() {
             <p className="text-xs text-gray-600 mt-1">
               Academic Project · 2026
             </p>
+
           </div>
+
         </div>
       </footer>
 
