@@ -26,6 +26,9 @@ GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 
+# Optional: comma-separated additional frontend origins
+EXTRA_ORIGINS = os.getenv("FRONTEND_ORIGINS", "")
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("launchai")
 
@@ -34,26 +37,47 @@ gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 
 # --------------------------------------------------
-# FASTAPI APP
+# CORS CONFIGURATION
+# --------------------------------------------------
+
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+
+    # Production frontend
+    "https://launchai-iota.vercel.app",
+]
+
+# Add optional custom domains from Render environment
+if EXTRA_ORIGINS:
+    ALLOWED_ORIGINS.extend(
+        origin.strip().rstrip("/")
+        for origin in EXTRA_ORIGINS.split(",")
+        if origin.strip()
+    )
+
+# Remove duplicates
+ALLOWED_ORIGINS = list(set(ALLOWED_ORIGINS))
+
+
+# --------------------------------------------------
+# FASTAPI APPLICATION
 # --------------------------------------------------
 
 app = FastAPI(
     title="LaunchAI API",
-    description="AI-powered landing page generator",
-    version="2.0.0"
+    description="AI-powered website generation platform",
+    version="2.1.0"
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 
@@ -104,14 +128,19 @@ Return ONLY the HTML code, starting with <!DOCTYPE html>.
 def clean_html(html: str) -> str:
     html = html.strip()
 
-    # Remove Markdown code fences if the model adds them
-    html = re.sub(r"^```(?:html)?\s*", "", html, flags=re.IGNORECASE)
+    html = re.sub(
+        r"^```(?:html)?\s*",
+        "",
+        html,
+        flags=re.IGNORECASE
+    )
+
     html = re.sub(r"\s*```$", "", html)
 
     html = html.strip()
 
     if "<html" not in html.lower():
-        raise ValueError("The AI response did not contain a valid HTML document.")
+        raise ValueError("AI response did not contain a valid HTML document.")
 
     return html
 
@@ -124,8 +153,16 @@ def clean_html(html: str) -> str:
 def home():
     return {
         "message": "LaunchAI backend is running!",
+        "status": "healthy",
         "primary_provider": "Groq",
         "fallback_provider": "Gemini"
+    }
+
+
+@app.get("/health")
+def health():
+    return {
+        "status": "ok"
     }
 
 
@@ -141,13 +178,14 @@ def generate_website(request: WebsiteRequest):
     errors = []
 
     # ==============================================
-    # 1. TRY GROQ FIRST
+    # 1. GROQ PRIMARY PROVIDER
     # ==============================================
 
     if groq_client:
 
         try:
-            logger.info("Sending website generation request to Groq...")
+            logger.info("Sending request to Groq...")
+
             start_time = time.perf_counter()
 
             completion = groq_client.chat.completions.create(
@@ -182,7 +220,7 @@ def generate_website(request: WebsiteRequest):
             html = clean_html(html)
 
             logger.info(
-                "Groq generated the website in %.2f seconds",
+                "Groq generated website in %.2f seconds",
                 elapsed
             )
 
@@ -196,19 +234,20 @@ def generate_website(request: WebsiteRequest):
 
         except Exception as error:
             logger.exception("Groq generation failed")
-            errors.append(f"Groq: {str(error)}")
+            errors.append(f"Groq: {type(error).__name__}")
 
     else:
         errors.append("Groq: API key is missing.")
 
     # ==============================================
-    # 2. FALL BACK TO GEMINI
+    # 2. GEMINI FALLBACK PROVIDER
     # ==============================================
 
     if gemini_client:
 
         try:
             logger.warning("Trying Gemini fallback...")
+
             start_time = time.perf_counter()
 
             response = gemini_client.interactions.create(
@@ -231,7 +270,7 @@ def generate_website(request: WebsiteRequest):
             html = clean_html(html)
 
             logger.info(
-                "Gemini generated the website in %.2f seconds",
+                "Gemini generated website in %.2f seconds",
                 elapsed
             )
 
@@ -244,8 +283,8 @@ def generate_website(request: WebsiteRequest):
             }
 
         except Exception as error:
-            logger.exception("Gemini fallback failed")
-            errors.append(f"Gemini: {str(error)}")
+            logger.exception("Gemini generation failed")
+            errors.append(f"Gemini: {type(error).__name__}")
 
     else:
         errors.append("Gemini: API key is missing.")
@@ -259,7 +298,10 @@ def generate_website(request: WebsiteRequest):
     raise HTTPException(
         status_code=502,
         detail={
-            "message": "Website generation failed. Both AI providers were unsuccessful.",
-            "errors": errors
+            "message": (
+                "Website generation failed. "
+                "Please try again later."
+            ),
+            "providers": errors
         }
     )
